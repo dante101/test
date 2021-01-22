@@ -6,7 +6,7 @@ PID_PATH=/run/
 PG_V=""
 TIMESTAMP=$(date "+%d-%m-%Y")
 SITE15(){
-									touch /etc/apache2/site-avalable/$SITE_NAME 
+									touch /etc/apache2/site-avalable/$SITE_NAME
 								        echo "
 									<VirtualHost *:$PORT>\n
 									ServerAdmin webmaster@localhost \n
@@ -29,8 +29,8 @@ SITE15(){
 									ErrorLog ${APACHE_LOG_DIR}/error.log	\n
 									LogLevel warn \n
 									CustomLog ${APACHE_LOG_DIR}/access.log combined \n
-									</VirtualHost> \n"  > /etc/apache2/site-avalable/$SITE_NAME 
-									 a2enmod $SITE_NAME 
+									</VirtualHost> \n"  > /etc/apache2/site-avalable/$SITE_NAME
+									 a2enmod $SITE_NAME
 }
 site16 () {
 									touch /etc/apache2/site-avalable/$SITE_NAME.conf
@@ -55,15 +55,16 @@ site16 () {
 									ErrorLog ${APACHE_LOG_DIR}/error.log	\n
 									LogLevel warn \n
 									CustomLog ${APACHE_LOG_DIR}/access.log combined \n
-									</VirtualHost> \n " > /etc/apache2/site-avalable/$SITE_NAME.conf 
+									</VirtualHost> \n " > /etc/apache2/site-avalable/$SITE_NAME.conf
 									 a2enmod $SITE_NAME
 }
-	
-#create_db () {
-#createdb	
+
+create_db () {
+createdb -U postgres $NEW_DB
+}
 #Проверка версии Астры
 if [[ "$OS_VERSION" = "SE 1.6 (smolensk)" ]]; then
-	OS_VERSION=16 
+	OS_VERSION=16
 	PG_V="postgresql-9.6"
 elif [[ "$OS_VERSION" = "SE 1.5 (smolensk)" ]]; then
 	OS_VERSION=15
@@ -71,15 +72,15 @@ elif [[ "$OS_VERSION" = "SE 1.5 (smolensk)" ]]; then
 else
 	echo -e "\e[31mГовно какое то у вас а ни Операционка\e[0m"
 fi
-#Очистка экрана	
+#Очистка экрана
 clear
 
-#Проверка на рута	
+#Проверка на рута
 #Выбор действия
 echo -e "\e[32mчто желаете хозяйн?\n
 \e[33mустановить веб сервер apache нажмите 1\n
 \e[33mустановить сервер базы данны нажмите 2\e[0m\n
-\e[33mсделать резервную копию базы данных нажмите 3\e[0m\n 
+\e[33mсделать резервную копию базы данных нажмите 3\e[0m\n
 \e[33mудалить сервер базы данны нажмите 4\e[0m\n
 \e[33mудалить веб сервер apache2 нажмите 5\e[0m\n
 \e[33mсоздать базу данных нажмите 6\e[0m\n"
@@ -96,13 +97,13 @@ done
 case "$VARIANT" in
 #установка apache2
 1)
-#Проверка на рута	
+#Проверка на рута
 if [[ $UID != 0 ]]; then
 	echo -e "\e[31mвы не ROOT идите на хер\e[0m"
 	exit 1 >&2
 fi
 pidof apache2 > /dev/null
-if [[ $? -eq 0 ]]; then 
+if [[ $? -eq 0 ]]; then
 	echo -e "\e[32mсервер apache установлен и запущен\e[0m"
 	exit 0
 elif [[ -e $APACHE_BIN ]]; then
@@ -111,7 +112,7 @@ elif [[ -e $APACHE_BIN ]]; then
 			if [[  -z $START  ]]; then
 				service apache2 start
 			fi
-			
+
 		case "$START" in
 			[Д,д,Y,y,Yes,yes,Да,да] )
 				service apache2 start
@@ -126,8 +127,8 @@ elif [[ -e $APACHE_BIN ]]; then
 				;;
 		esac
 else
-	apt-get update && apt-get install apache2 -y && apt-get autoremove -y			 
-	
+	apt-get update && apt-get install apache2 -y && apt-get autoremove -y
+
 fi
 usermod -aG shadow www-data
 setfacl -d -m u:www-data:r /etc/parsec/macdb
@@ -142,13 +143,13 @@ elif
 		[Д,д,Y,y,Yes,yes,Да,да] )
 			read -p "Имя сайта" SITE_NAME
 			read -p "Укажите ПОРТ. 80 или 8080 рекомендуется :" PORT
-				until [ -z $PORT ]; 
+				until [ -z $PORT ];
 				do
 				echo -e "не правельный порт"
 				if [[ $PORT != [1-65535] ]]; then
 				echo -e "\e[32не верное значение порта. порт должен быть в диапазоне 1 - 65535"
 				exit 1
-				elif 
+				elif
 					if [[ OS_VERSION = 15 ]]; then site15
 					else  site16
 					fi
@@ -161,18 +162,18 @@ elif
 				echo -e "WRONG ANSWER!!!"
 				exit 0
 				;;
-	
+
 ;;
 
 #Установка сервера баз данных
 2)
-#Проверка на рута	
+#Проверка на рута
 if [[ $UID != 0 ]]; then
 	echo -e "\e[31mвы не ROOT идите на хер\e[0m"
 	exit 1 >&2
 fi
 pidof postgres > /dev/null
-if [[ $? -eq 0 ]]; then 
+if [[ $? -eq 0 ]]; then
  	echo -e "\e[32mсервер баз данных установлен и запущен\e[0m"
 	exit 0
 elif [[ -z $PG_BIN ]]; then
@@ -181,7 +182,7 @@ elif [[ -z $PG_BIN ]]; then
 			if [[  -z $START  ]]; then
 				service postgresql start
 			fi
-			
+
 		case "$START" in
 			[Д,д,Y,y,Yes,yes,Да,да] )
 				service postgresql start
@@ -197,7 +198,7 @@ elif [[ -z $PG_BIN ]]; then
 		esac
 else
 	apt-get update && apt-get install $PG_V -y && apt-get autoremove -y
-	
+
 fi
 usermod -aG shadow postgres
 setfacl -d -m u:postgres:r /etc/parsec/macdb
@@ -247,7 +248,7 @@ elif [[ -e $HOME/$DB_NAME.tar.gz ]]; then
 				exit 0
 				;;
 		esac
-	
+
 else
 pg_dump -U postgres -F p -f $HOME/$DB_NAME.sql "$DB_NAME"
 tar czvf $DB_NAME.tar.gz $DB_NAME.sql
@@ -261,7 +262,7 @@ rm $DB_NAME.sql
 ;;
 
 4)#Удаление Postgresql
-#Проверка на рута	
+#Проверка на рута
 if [[ $UID != 0 ]]; then
 	echo -e "\e[31mвы не ROOT идите на хер\e[0m"
 	exit 1 >&2
@@ -278,7 +279,7 @@ setfacl -R -m u:postgres:--- /etc/parsec/capdb
 setfacl  -m u:postgres:--- /etc/parsec/capdb
 ;;
 5)#Удаление Apache2
-#Проверка на рута	
+#Проверка на рута
 if [[ $UID != 0 ]]; then
 	echo -e "\e[31mвы не ROOT идите на хер\e[0m"
 	exit 1 >&2
@@ -296,7 +297,7 @@ read -p "введите имя базы данных" NEW_DB
 DB_CHECK=$(psql -U postgres -l | cut -d \| -f 1 | egrep $DB_NAME)
 if [[ -z $NEW_DB ]];then echo -e  "\e[31mне чего не выбрано exiting..."
 	exit 0
-	elif [[ $DB_CHECK == $NEW_DB ]];then echo -e "\e[31$NEW_DB уже существует." 
+	elif [[ $DB_CHECK == $NEW_DB ]];then echo -e "\e[31$NEW_DB уже существует."
 		exit 0
-	else	 
+	else
 esac
