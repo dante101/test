@@ -1,7 +1,7 @@
 #!/bin/bash
 #vars
-IP=$(ip a |egrep -v inet6 | egrep inet | awk '{print $2}' |egrep [0-9].[0-9].[0-9].[0-9] |egrep -v 127 |awk '{print $1}' | sort | uniq)
-RELEASE=$(cat /etc/os-release |egrep NAME | awk -F= '{print $2}' | egrep ^[a-z,A-Z,])
+IP=$(ip a |egrep -v inet6 | egrep inet | awk '{print $2}' |egrep [0-9].[0-9].[0-9].[0-9] |egrep -v 127 |awk '{print $1}')
+RELEASE=$(cat /etc/os-release |egrep  PRETTY_NAME | awk -F= '{print $2}')
 KERNEL=$(uname -a | cut -d " " -f 3)
 USERS=$(who | cut -d' ' -f1 | sort | uniq)
 DATE=$(date)
@@ -13,6 +13,7 @@ USED_SWAP=$(free -h | awk -c '{print $1,$2}' |egrep -i "swap" |awk '{print $2}')
 FREE_MEM=$(free -h | awk -c '{print $1,$4}' |egrep -i "mem" |awk '{print $2}')
 FREE_SWAP=$(free -h | awk -c '{print $1,$4}' |egrep -i "swap" |awk '{print $2}')
 LAST=$( last -15 |awk '{print $1,$3,$4,$5,$6,$7,$10}' |egrep -v reboot | egrep [0-9].[0-9].[0-9].[0-9] | sort )
+########################################################################################################################################
 echo -e "\e[0m==========================================================================================================================="
 echo -e "\e[1;38;5;178mHi there !         			\e[1;5;38;5;208mWelcom to RUSBITECH SPB  Division\e[0m       "
 echo -e "\e[0m==========================================================================================================================="
