@@ -8,14 +8,16 @@ PG_V=""
 TIMESTAMP=$(date "+%d-%m-%Y")
 site15(){
 
-								touch /etc/apache2/site-avalable/$SITE_NAME
-								  echo "<VirtualHost *:$PORT>\n
+								apt-get install libapache2-mod-auth-pam
+								touch /etc/apache2/sites-available/$SITE_NAME
+								mkdir /var/www/$SITE_NAME
+								  echo -e "<VirtualHost *:$PORT>\n
 									ServerAdmin webmaster@localhost \n
 									DocumentRoot /var/www/$SITE_NAME \n
 									<Directory /> \n
 								 		AuthType Basic \n
 										AuthPAM_Enabled on \n
-										AuthName "PAM" \n
+										AuthName \"PAM\" \n
 										require valid-user \n
 										Options +Indexes +FollowSymLinks +MultiViews \n
 										AllowOverride None \n
@@ -30,13 +32,20 @@ site15(){
 									ErrorLog ${APACHE_LOG_DIR}/error.log	\n
 									LogLevel warn \n
 									CustomLog ${APACHE_LOG_DIR}/access.log combined \n
-									</VirtualHost> "  > /etc/apache2/site-avalable/$SITE_NAME
-									 a2enmod $SITE_NAME
+									</VirtualHost> "  > /etc/apache2/sites-available/$SITE_NAME
+								echo -e	"Listen $PORT" >> /etc/apache2/ports.conf
+									 a2enmod auth_pam
+									 a2ensite $SITE_NAME
+									 service apache2 reload
+									echo -e "\e[1;38;5;1mУбидитесь что  пользователю заданы мандатные атрибуты\e[0m "
+									2>/dev/null
 }
 site16 () {
 
-									touch /etc/apache2/site-avalable/$SITE_NAME.conf
- 								echo  "<VirtualHost *:$PORT> \n
+									apt-get install libapache2-mod-authnz-pam
+									touch /etc/apache2/sites-available/$SITE_NAME.conf
+									mkdir /var/www/$SITE_NAME
+ 								echo  -e "<VirtualHost *:$PORT> \n
 									ServerAdmin webmaster@localhost \n
 									DocumentRoot /var/www/$SITE_NAME \n
 									<Directory /> \n
@@ -58,9 +67,13 @@ site16 () {
 									ErrorLog ${APACHE_LOG_DIR}/error.log	\n
 									LogLevel warn \n
 									CustomLog ${APACHE_LOG_DIR}/access.log combined \n
-									</VirtualHost>  " > /etc/apache2/site-avalable/$SITE_NAME.conf
-									a2enmod $SITE_NAME
-									
+									</VirtualHost>  " > /etc/apache2/sites-available/$SITE_NAME.conf
+									echo -e "Listen $PORT" >> /etc/apache2/ports.conf
+									a2enmod authnz_pam
+									a2ensite $SITE_NAME
+									systemctl reload apache2
+									echo -e "\e[1;38;5;1mУбидитесь что  пользователю заданы мандатные атрибуты\e[0m "		
+									2>/dev/null
 }
 #Очистка экрана
 clear
@@ -84,7 +97,7 @@ echo -e "\e[1;38;5;32mВыбирите действие: \n
 \e[33mустановить веб сервер apache нажмите - 1\n
 \e[33mустановить сервер базы данны нажмите -  2\n
 \e[33mсделать резервную копию базы данных нажмите -  3\n
-\e[33mудалить сервер базы данны нажмите -  4\n
+\e[33mудалить сервер базы данных нажмите -  4\n
 \e[33mудалить веб сервер apache2 нажмите -  5\n
 \e[33mсоздать базу данных нажмите -  6\e[0m\n
 Или нажмите ctrl+C для выхода."
@@ -153,7 +166,7 @@ read -p "Хотите создать конфигурационный файл �
 				echo -e "\e[31не верное значение порта. порт должен быть в диапазоне 1 - 65535\e[0m"
 				elif
 				 [[ OS_VERSION = 15 ]]; then site15
-				else  site16
+				else  	site16
 				fi
 				;;
 		[N,n,Н,н,Нет,нет,No,no] )
@@ -286,7 +299,7 @@ if [[ $UID != 0 ]]; then
 fi
 
 apt-get remove apache2 -y && apt-get purge apache2 -y
-apt-get autoremove
+apt-get autoremove -y
 #usermod -dG shadow www-data
 setfacl -d -m u:www-data:--- /etc/parsec/macdb
 setfacl -R -m u:www-data:--- /etc/parsec/macdb
