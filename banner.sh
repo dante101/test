@@ -1,6 +1,7 @@
 #!/bin/bash
 #vars
-IP=$(ip a |egrep -v inet6 | egrep inet | awk '{print $2}' |egrep [0-9].[0-9].[0-9].[0-9] |egrep -v 127 |awk '{print $1}')
+#IP=$(ip a |egrep -v inet6 | egrep inet | awk '{print $2}' |egrep [0-9].[0-9].[0-9].[0-9] |egrep -v 127 |awk '{print $1}')
+IP=$(hostname -I)
 RELEASE=$(cat /etc/os-release |egrep  PRETTY_NAME | awk -F= '{print $2}')
 KERNEL=$(uname -a | cut -d " " -f 3)
 USERS=$(who | cut -d' ' -f1 | sort | uniq)
