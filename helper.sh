@@ -1,26 +1,30 @@
 #!/bin/bash
-APACHE_BIN=/lib/systemd/system/apache2.service
-PG_BIN=$(ls -l /var/lib/postgresql/)
-OS_VERSION=$(cat /etc/astra_version)
-PID_PATH=/run/
-PG_V=""
-WEB_V="apache2"
-TIMESTAMP=$(date "+%d-%m-%Y")
 #######################################################################################################
 #Проверка версии Астры
 ########################################################################################################
-if [[ "$OS_VERSION" = "SE 1.6 (smolensk)" ]]; then
+OS_VERSION=$(cat /etc/astra_version) 2> /dev/null
+if [[ "$OS_VERSION" == "SE 1.6 (smolensk)" ]]; then
 	OS_VERSION=16
 	PG_V="postgresql-9.6"
 	WEB_V="apache2"
-elif [[ "$OS_VERSION" = "SE 1.5 (smolensk)" ]]; then
+elif [[ "$OS_VERSION" == "SE 1.5 (smolensk)" ]]; then
 	OS_VERSION=15
 	PG_V="postgresql-9.4"
 	WEB_V="apache2"
 else
-	echo -e "\e[1;38;5;31mNo suitable OS has been detected. Exiting ......\e[0m"
+	LSB=$(lsb_release -d | awk '{print $2,$4}')
+	echo -e "\e[1;38;5;31mNo suitable OS has been detected. Exiting ......\n
+	ваша OS is $LSB\e[0m"
+	exit 1
 fi
-
+PID_PATH=/run/
+APACHE_PID_FOLDER=$PID_PATH/$WEB_V
+PG_PID_FOLDER=$PID_PATH/postgresql
+WEB_WORKDIR=/etc/$WEB_V
+PG_WORKDIR=/etc/postgresql
+TIMESTAMP=$(date "+%d-%m-%Y")
+WEB_CONF=$WEB_WORKDIR/apache2.conf
+WEB_SITES=$WEB_WORKDIR/site-available/
 ########################################################################################################
 #Проверка доступности репозитория
 ########################################################################################################
@@ -35,6 +39,7 @@ fi
 site15(){
 
 								apt-get install libapache2-mod-auth-pam
+								a2enmod auth_pam
 								touch /etc/apache2/sites-available/$SITE_NAME
 								mkdir /var/www/$SITE_NAME
 								  echo -e "<VirtualHost *:$PORT>\n
@@ -60,8 +65,7 @@ site15(){
 									CustomLog ${APACHE_LOG_DIR}/access.log combined \n
 									</VirtualHost> "  > /etc/apache2/sites-available/$SITE_NAME
 								echo -e	"Listen $PORT" >> /etc/apache2/ports.conf
-									 a2enmod auth_pam
-									 a2ensite $SITE_NAME
+									  a2ensite $SITE_NAME
 									 service apache2 reload
 									echo -e "\e[1;38;5;1mУбидитесь что  пользователю заданы мандатные атрибуты\e[0m "
 									2>/dev/null
@@ -72,6 +76,7 @@ site15(){
 site16 () {
 
 									apt-get install libapache2-mod-authnz-pam
+									a2enmod authnz_pam
 									touch /etc/apache2/sites-available/$SITE_NAME.conf
 									mkdir /var/www/$SITE_NAME
  								echo  -e "<VirtualHost *:$PORT> \n
@@ -98,7 +103,6 @@ site16 () {
 									CustomLog ${APACHE_LOG_DIR}/access.log combined \n
 									</VirtualHost>  " > /etc/apache2/sites-available/$SITE_NAME.conf
 									echo -e "Listen $PORT" >> /etc/apache2/ports.conf
-									a2enmod authnz_pam
 									a2ensite $SITE_NAME
 									systemctl reload apache2
 									echo -e "\e[1;38;5;1mУбидитесь что  пользователю заданы мандатные атрибуты\e[0m "		
@@ -119,47 +123,75 @@ create_db () {
 #Функция резервного копирования базы данных
 ########################################################################################################
 backup_db () {
-	HOME=$(pwd)
-	FORMAT=sql
+	local HOME=$(pwd)
+	local FORMAT=sql
+	local PG_USERS=$(psql -U postgres -c "\du" |cut -d \| -f 1)
+	local LIST_DB=$(psql -U postgres -c "\l" |cut -d \| -f 1 | egrep -v template* |egrep -v  postgres*)
+			user () {
+				for arg
+				do
+				echo "$arg"
+				done
+			}
+			user () $PG_USERS
+	echo -e "$PG_USERS"
 	echo -e "Имя пользователя который имет права на создание резервных копий баз данных:     "
 	read   USER
+		i=$USER
+		for i in $PG_USERS
+		do
+			if [[ i == $PG_USERS ]]; then
+				echo -e ""
+				else
+			fi
+		done		
+	echo -e "доступные варианты: $LIST_DB" 		
 	echo -e "Резервную копию какой базу данных выполнить: "
 	read   DB_NAME
-	if [[ -d $DB_NAME.$FORMAT ]] || [[ -f $DB_NAME.$FORMAT]]; then
-		echo -e "\e[32mрезервная копия базы данных $DB_NAME уже существует. Хотите удалить и создать новый? Д/н\e[0m"
+	#pg_dump -U $USER -F p -f $HOME/$DB_NAME.$FORMAT "$DB_NAME"
+	if	[[ -d $HOME/$DB_NAME.$FORMAT ]] || [[ -f $HOEM/$DB_NAME.$FORMAT ]]; then
+			echo -e "\e[32mрезервная копия базы данных $DB_NAME уже существует. Хотите удалить и создать новый? да/нет\e[0m"
 			read DEL_DB
 			case "$DEL_DB" in
-			[Д,д,Y,y,Yes,yes,Да,да] )
+			[Д,д,Y,y,Yes,yes,Да,да,у,У] )
 				rm $HOME/$DB_NAME.$FORMAT
 				pg_dump -U $USER -F p -f $HOME/$DB_NAME.$FORMAT "$DB_NAME"
 			;;
 			[N,n,Н,н,Нет,нет,No,no] )
 				echo -e "\e[31mВыход ..|.\e[0m"
 				exit 0
-				;;
+			;;
 			*)
 				echo -e "WRONG ANSWER!!!"
 				exit 0
-				;;
+			;;
 			esac
+
 	fi		
 		echo -e   "Хотите архивировать дамп базы данных? да/нет" 
 		read ANSWER
 			case "$ANSWER" in
-				Д,д,Y,y,Yes,yes,Да,да] )
-					echo -e   "Возможные варианты  форматов архива: gz, bzip, zip  "
+				[Д,д,Y,y,Yes,yes,Да,да,у,У] )
+					echo -e   "Какой формат архива? Возможные варианты: gz, bzip, zip  "
 					read ARCHIVE
-					until [ "$ARCHIVE" != gz ] || [ "$ARCHIVE" != bzip ] || [ "$ARCHIVE" != zip ]
-					do
-						echo -e "Выбран неверный формат архива. Выберите: gz, bzip, zip или нажмите ctrl+С для выхода "
-					done
-								if [[ $ARCHIVE==gz]]; then
+					if [ "$ARCHIVE" != gz ] || [ "$ARCHIVE" != bzip ] || [ "$ARCHIVE" != zip ]; then
+						local BOOLEN=false
+					fi
+						until [ "$BOOLEN" = false ]
+						do
+							echo -e "Выбран неверный формат архива. Выберите: gz, bzip, zip или нажмите ctrl+С для выхода "
+							read ARCHIVE	
+						done
+					
+								if [[ $ARCHIVE==gz ]]; then
 									tar czvf $DB_NAME.$FORMAT.$ARCHIVE $DB_NAME.$FORMAT
-									elif [[ $ARCHIVE==bzip ]];then
+									elif [[ $ARCHIVE==bzip ]]; then
 									tar cjvf $DB_NAME.$FORMAT.$ARCHIVE $DB_NAME.$FORMAT
-									elif [[ $ARCHIVE==zip ]];then
+									elif [[ $ARCHIVE==zip ]]; then
 									zip $DB_NAME.$FORMAT.$ARCHIVE $DB_NAME.$FORMAT
-								else 
+									else
+									echo -e "не известная ошибка"
+										exit 1
 								fi
 			 ;;
 				[N,n,Н,н,Нет,нет,No,no] )
@@ -176,7 +208,7 @@ backup_db () {
 ###################################################################################################
 #Функция установки apache2
 ###################################################################################################
-web_intall (){
+web_intall () {
 #Проверка на рута
 if [[ $UID != 0 ]]; then
 	echo -e "\e[31mвы не ROOT. Для установки вэб-сервера требуются права супер-пользователя.  \e[0m"
@@ -186,11 +218,11 @@ pidof apache2 > /dev/null
 if [[ $? -eq 0 ]]; then
 	echo -e "\e[32mсервер apache установлен и запущен\e[0m"
 	exit 0
-elif [[ -e $APACHE_BIN ]]; then
-	echo -e "\e[32mсервер apache установлен но не запущен. Хотите стартовать сервер?да\нет\e[0m"
+elif [[ -d $APACHE_PID_FOLDER ]]; then
+	echo -e "\e[32mсервер apache установлен, но не запущен. Хотите стартовать сервер?да\нет\e[0m"
 		read START
 		case "$START" in
-			[Д,д,Y,y,Yes,yes,Да,да] )
+			[Д,д,Y,y,Yes,yes,Да,да,у,У] )
 				service apache2 start
 				;;
 			[N,n,Н,н,Нет,нет,No,no] )
@@ -213,15 +245,18 @@ setfacl  -m u:www-data:rx /etc/parsec/macdb
 echo -e "Хотите создать конфигурационный файл да/нет?"
 read   ANS
     case $ANS in
-		[Д,д,Y,y,Yes,yes,Да,да] )
+		[Д,д,Y,y,Yes,yes,Да,да,у,У] )
 			echo -e "\e[1;38;5;15mИмя сайта:\e[0m "
 			read -p ""  SITE_NAME
+			if [[ -f $WEB_SITES/$SITE_NAME ]]; then
+				echo -e "$SITE_NAME уже существует. Хотите удалить и создать новый? да/нет"
+			fi
 			echo -e "\e[1;38;5;15mУкажите ПОРТ. 80 или 8080 рекомендуется:  "
 			read -p "" PORT
 				if [[ $PORT -lt 1 ]] || [[ $PORT -gt 65535 ]]; then
 				echo -e "\e[31не верное значение порта. порт должен быть в диапазоне 1 - 65535\e[0m"
 				elif
-				 [[ OS_VERSION = 15 ]]; then 
+				 [[ $OS_VERSION == 15 ]]; then 
 					 site15
 				else 
 				 	site16
@@ -251,6 +286,23 @@ fi
 	if [[ $? -eq 0 ]]; then
  	echo -e "\e[32mсервер баз данных установлен и запущен\e[0m"
 	exit 0
+	elif [[ -d $PID_PATH/postgresql ]]; then
+		echo -e "\e[32mсервер сервер баз данных установлен, но не запущен. Хотите стартовать сервер?да\нет\e[0m"
+		read START_DB
+		case "$START_DB" in
+			[Д,д,Y,y,Yes,yes,Да,да,у,У] )
+				service postgresql start
+				;;
+			[N,n,Н,н,Нет,нет,No,no] )
+				echo -e "\e[15m Выход..|.\e[0m"
+				exit 0
+				;;
+			*)
+				echo -e "Не допустимая операция!!!"
+				exit 1
+				;;
+		esac
+
 	else
 	apt-get update && apt-get install $PG_V -y && apt-get autoremove -y
 	fi
@@ -272,14 +324,15 @@ if [[ $UID != 0 ]]; then
 	echo -e "\e[31mвы не ROOT. Для удаления сервера базданных требуются права супер-пользователя.  \e[0m"
 	exit 1 
 else
-	apt-get remove $PG_V -y && apt-get purge $PG_V -y
-	apt-get autoremove -y
+	apt-get remove $PG_V -y && 	apt-get autoremove -y
+	rm -rf $PID_PATH/postgresql
 	setfacl -d -m u:postgres:--- /etc/parsec/macdb
 	setfacl -R -m u:postgres:--- /etc/parsec/macdb
 	setfacl  -m u:postgres:--- /etc/parsec/macdb
 	setfacl -d -m u:postgres:--- /etc/parsec/capdb
 	setfacl -R -m u:postgres:--- /etc/parsec/capdb
 	setfacl  -m u:postgres:--- /etc/parsec/capdb
+fi
 }
 ########################################################################################################
 #Функция удаления вэб сервера
@@ -293,6 +346,7 @@ fi
 
 apt-get remove apache2 -y && apt-get purge apache2 -y
 apt-get autoremove -y
+#rm -r /etc/$WEB_V
 setfacl -d -m u:www-data:--- /etc/parsec/macdb
 setfacl -R -m u:www-data:--- /etc/parsec/macdb
 setfacl  -m u:www-data:--- /etc/parsec/macdb
@@ -300,7 +354,7 @@ setfacl  -m u:www-data:--- /etc/parsec/macdb
 
 #Очистка экрана
 clear
-echo -e "\e[1;38;5;31mATANTION Please. \e[1;38;5;15mДанный скрип предназанчен для использования только в ОС Астра Линукс SE smolensk\e[0m"
+echo -e "\e[1;5;38;5;31mATANTION Please\e[0m. \e[1;38;5;15mДанный скрип предназанчен для использования только в ОС Астра Линукс SE smolensk\e[0m"
 
 #Выбор действия
 echo -e "\e[1;38;5;32mВыбирите действие: \n
@@ -350,6 +404,6 @@ case "$VARIANT" in
 ;;
 	*)
 	echo -e "\e[15mНе чего не выбрано. Выход.....\e[0m"
-	break
+	exit 0
 ;;
 esac
